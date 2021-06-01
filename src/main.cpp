@@ -11,12 +11,14 @@
 #define USE_LOCAL_SERVER true
 
 #define master_pin D8
-#define master_reboot_pin D7
+#define master_reboot_pin D1
 
 #define check_delay 20 // Задержка проверки мастера в секундах
 
 // Локальный ключ.
 char auth[] = "qD_9-u6CLaII9eHjmrR_JJw4OZimugzQ";
+// Боевой ключ
+// char auth[] = "9-KQWyfz0hoNqhtdCl7_o4ukSJyE6Byr";
 
 char ssid_prod[] = "Farm_router";    // prod
 char ssid_local[] = "Keenetic-4926"; // home
@@ -182,6 +184,7 @@ void setup()
   EEPROM.begin(5);
   pinMode(master_pin, INPUT);
   pinMode(master_reboot_pin, OUTPUT);
+  digitalWrite(master_reboot_pin, LOW);
   reboot_counter = EEPROM.read(1);
   // Показывать как обычное вермя. Если нужна метка, то режим timestamp
   logg.setTimeShowMode(hms);
@@ -199,47 +202,52 @@ void loop()
 {
   Blynk.run();
   // Если надо следить за мастером, то бдим
-  if (watch_after_master)
-  {
-    long curr_time = hour() * 3600 + minute() * 60 + second();
-    // Проверить жив ли мастер
-    if (digitalRead(master_pin) == HIGH)
-    {
-      down_flag = false;
-    }
-    // Если мастер упал и это произошло только сейчас то добавим ребут и ждём оживления n секунд,
-    // если мастер всё ещё мёртв, то добавляем в счётчик ребута ещё 1 и посылаем сигнал ребута
-    if (digitalRead(master_pin) == LOW && down_flag == false)
-    {
-      master_check = curr_time + check_delay;
-      reboot_counter++;
-      down_flag = true;
-      logg.setTimestamp(curr_time);
-      logg.setMode('A');
-      logg.setType('E');
-      logg.println("Master is down!");
-    }
+  // if (watch_after_master)
+  // {
+  //   long curr_time = hour() * 3600 + minute() * 60 + second();
+  //   // Проверить жив ли мастер
+  //   if (digitalRead(master_pin) == HIGH)
+  //   {
+  //     down_flag = false;
+  //   }
+  //   // Если мастер упал и это произошло только сейчас то добавим ребут и ждём оживления n секунд,
+  //   // если мастер всё ещё мёртв, то добавляем в счётчик ребута ещё 1 и посылаем сигнал ребута
+  //   if (digitalRead(master_pin) == LOW && down_flag == false)
+  //   {
+  //     master_check = curr_time + check_delay;
+  //     reboot_counter++;
+  //     down_flag = true;
+  //     logg.setTimestamp(curr_time);
+  //     logg.setMode('A');
+  //     logg.setType('E');
+  //     logg.println("Master is down!");
+  //   }
 
-    if (curr_time - 2 < master_check && master_check < curr_time + 2)
-    {
-      reboot_counter++;
-      logg.setTimestamp(curr_time);
-      logg.setMode('A');
-      logg.setType('E');
-      logg.println("Master forced reboot!");
-      reboot_master();
-      delay(500);
-      if (digitalRead(master_pin) == HIGH)
-      {
-        down_flag = false;
-      }
-    }
-  }
+  //   if (curr_time - 2 < master_check && master_check < curr_time + 2)
+  //   {
+  //     reboot_counter++;
+  //     logg.setTimestamp(curr_time);
+  //     logg.setMode('A');
+  //     logg.setType('E');
+  //     logg.println("Master forced reboot!");
+  //     reboot_master();
+  //     delay(500);
+  //     if (digitalRead(master_pin) == HIGH)
+  //     {
+  //       down_flag = false;
+  //     }
+  //   }
+  // }
 }
 
 void reboot_master()
 {
-  digitalWrite(master_reboot_pin, LOW);
-  delay(100);
   digitalWrite(master_reboot_pin, HIGH);
+  delay(100);
+  // digitalWrite(master_reboot_pin, );
+  digitalWrite(master_reboot_pin, LOW);
+  reboot_counter++;
+  Blynk.virtualWrite(V1, reboot_counter);
+  EEPROM.write(1, reboot_counter);
+  EEPROM.commit();
 }
