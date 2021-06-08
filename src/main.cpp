@@ -8,7 +8,7 @@
 
 #include <EEPROM.h>
 
-#define USE_LOCAL_SERVER true
+#define USE_LOCAL_SERVER false
 
 #define master_pin D8
 #define master_reboot_pin D1
@@ -16,9 +16,9 @@
 #define check_delay 20 // Задержка проверки мастера в секундах
 
 // Локальный ключ.
-char auth[] = "qD_9-u6CLaII9eHjmrR_JJw4OZimugzQ";
+// char auth[] = "qD_9-u6CLaII9eHjmrR_JJw4OZimugzQ";
 // Боевой ключ
-// char auth[] = "9-KQWyfz0hoNqhtdCl7_o4ukSJyE6Byr";
+char auth[] = "9-KQWyfz0hoNqhtdCl7_o4ukSJyE6Byr";
 
 char ssid_prod[] = "Farm_router";    // prod
 char ssid_local[] = "Keenetic-4926"; // home
@@ -201,6 +201,10 @@ void setup()
 void loop()
 {
   Blynk.run();
+  if ((20 < (hour()*3600 + minute()*60 + second())) && ((hour()*3600 + minute()*60 + second()) < 30))
+  {
+    reboot_master();
+  }
   // Если надо следить за мастером, то бдим
   // if (watch_after_master)
   // {
