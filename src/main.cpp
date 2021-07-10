@@ -8,17 +8,18 @@
 
 #include <EEPROM.h>
 
-#define USE_LOCAL_SERVER false
+#define USE_LOCAL_SERVER true
 
+// Пин для проверки "живости" мастера
 #define master_pin D8
 #define master_reboot_pin D1
-
+#define blynkMasterAlivePin V10
 #define check_delay 20 // Задержка проверки мастера в секундах
 
 // Локальный ключ.
-// char auth[] = "qD_9-u6CLaII9eHjmrR_JJw4OZimugzQ";
+char auth[] = "qD_9-u6CLaII9eHjmrR_JJw4OZimugzQ";
 // Боевой ключ
-char auth[] = "9-KQWyfz0hoNqhtdCl7_o4ukSJyE6Byr";
+// char auth[] = "9-KQWyfz0hoNqhtdCl7_o4ukSJyE6Byr";
 
 char ssid_prod[] = "Farm_router";    // prod
 char ssid_local[] = "Keenetic-4926"; // home
@@ -179,15 +180,44 @@ BLYNK_WRITE(V4)
   }
 }
 
+
+BlynkTimer checkMasterTimer;
+// Специальная переменная, которая будет увеличиваться каждые 2 секунды. 
+// Если она перевалит указанное заранее значение, то мастер будет отправлен в ребут
+int masterCalls = 0;
+
+
+void increaseTimer() {
+  masterCalls++;
+  if (masterCalls % 5 == 0){
+    Blynk.virtualWrite(blynkMasterAlivePin, 2);
+  }
+  Serial.println("Master calls: " + String(masterCalls));
+  if (masterCalls >= 20) {
+    masterCalls = 0;
+    reboot_master();
+  }
+}
+
+void dropMasterChecks(){
+  Serial.println("Master is alive");
+  Blynk.virtualWrite(blynkMasterAlivePin, 1);
+  masterCalls = 0;
+}
+
 void setup()
 {
   EEPROM.begin(5);
+  Serial.begin(115200);
   pinMode(master_pin, INPUT);
   pinMode(master_reboot_pin, OUTPUT);
   digitalWrite(master_reboot_pin, LOW);
+  // Если на пине D7 был получен высокий сигнал от мастера, то дропаем флаг
+  // attachInterrupt(D7, dropMasterChecks, CHANGE);
   reboot_counter = EEPROM.read(1);
   // Показывать как обычное вермя. Если нужна метка, то режим timestamp
   logg.setTimeShowMode(hms);
+  checkMasterTimer.setInterval(2000L, increaseTimer);
   if (USE_LOCAL_SERVER)
   {
     Blynk.begin(auth, ssid_local, pass_local, IPAddress(192, 168, 1, 106), 8080);
@@ -201,9 +231,14 @@ void setup()
 void loop()
 {
   Blynk.run();
+  checkMasterTimer.run();
+  // Ребут после полуночи
   if ((20 < (hour()*3600 + minute()*60 + second())) && ((hour()*3600 + minute()*60 + second()) < 30))
   {
     reboot_master();
+  }
+  if (digitalRead(master_pin) == HIGH) {
+    dropMasterChecks();
   }
   // Если надо следить за мастером, то бдим
   // if (watch_after_master)
@@ -215,7 +250,7 @@ void loop()
   //     down_flag = false;
   //   }
   //   // Если мастер упал и это произошло только сейчас то добавим ребут и ждём оживления n секунд,
-  //   // если мастер всё ещё мёртв, то добавляем в счётчик ребута ещё 1 и посылаем сигнал ребута
+  //   // если мастер всё ещё мёртв, то добавляем в счётчик ребута ещё 1 и посылаем сигнал ребута  
   //   if (digitalRead(master_pin) == LOW && down_flag == false)
   //   {
   //     master_check = curr_time + check_delay;
@@ -226,7 +261,6 @@ void loop()
   //     logg.setType('E');
   //     logg.println("Master is down!");
   //   }
-
   //   if (curr_time - 2 < master_check && master_check < curr_time + 2)
   //   {
   //     reboot_counter++;
